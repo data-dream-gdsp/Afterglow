@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OurStars - HDL 助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+    <!-- 主容器 -->
+    <div class="container mx-auto max-w-4xl p-4">
+        <!-- 标题和模式选择 -->
+        <div class="mb-6 text-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-4">OurStars - HDL 生成助手</h1>
+            <p class="text-gray-500 mb-6">通过交互生成硬件描述语言 (HDL) 代码</p>
+            
+            <!-- 模式选择 -->
+            <div class="flex justify-center gap-6">
+                <button 
+                    id="chatModeBtn" 
+                    class="px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition-all duration-200"
+                >
+                    对话模式
+                </button>
+                <button 
+                    id="codeModeBtn" 
+                    class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg shadow hover:bg-gray-300 transition-all duration-200"
+                >
+                    代码生成模式
+                </button>
+            </div>
+        </div>
+
+        <!-- 聊天界面 -->
+        <div id="chatContainer" class="bg-white rounded-xl shadow p-4 space-y-4">
+            <!-- 消息显示区域 -->
+            <div id="messageArea" class="h-[400px] overflow-y-auto p-4 space-y-4 bg-gray-50 rounded-lg">
+                <!-- 消息将在这里动态添加 -->
+            </div>
+            
+            <!-- 输入框和发送按钮 -->
+            <div class="flex gap-3 mt-4">
+                <textarea 
+                    id="userInput" 
+                    class="w-full p-3 rounded-lg bg-gray-100 border-0 focus:ring-2 focus:ring-blue-500 resize-none"
+                    placeholder="输入您的问题或代码需求..."
+                    rows="3"
+                ></textarea>
+                <button 
+                    id="sendButton"
+                    class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2"
+                >
+                    <span>发送</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 文件下载区域 -->
+        <div id="downloadArea" class="mt-6 hidden">
+            <div class="bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-medium text-gray-800 mb-4">生成的文件</h3>
+                <div id="fileList" class="space-y-3">
+                    <!-- 生成的文件项将在这里动态添加 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 元素选择
+        const chatModeBtn = document.getElementById('chatModeBtn');
+        const codeModeBtn = document.getElementById('codeModeBtn');
+        const chatContainer = document.getElementById('chatContainer');
+        const downloadArea = document.getElementById('downloadArea');
+        const messageArea = document.getElementById('messageArea');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const fileList = document.getElementById('fileList');
+
+        let currentMode = 'chat'; // 默认模式
+
+        // 模式切换
+        chatModeBtn.addEventListener('click', () => {
+            currentMode = 'chat';
+            chatModeBtn.classList.add('bg-blue-500', 'text-white');
+            chatModeBtn.classList.remove('bg-gray-200', 'text-gray-800');
+            codeModeBtn.classList.add('bg-gray-200', 'text-gray-800');
+            codeModeBtn.classList.remove('bg-blue-500', 'text-white');
+            downloadArea.classList.add('hidden');
+        });
+
+        codeModeBtn.addEventListener('click', () => {
+            currentMode = 'code';
+            codeModeBtn.classList.add('bg-blue-500', 'text-white');
+            codeModeBtn.classList.remove('bg-gray-200', 'text-gray-800');
+            chatModeBtn.classList.add('bg-gray-200', 'text-gray-800');
+            chatModeBtn.classList.remove('bg-blue-500', 'text-white');
+            downloadArea.classList.remove('hidden');
+        });
+
+        // 发送消息
+        sendButton.addEventListener('click', async () => {
+            const userMessage = userInput.value.trim();
+            if (!userMessage) return;
+
+            // 显示用户消息
+            addMessage('user', userMessage);
+
+            // 清空输入框
+            userInput.value = '';
+
+            // 请求 API
+            const response = await mockApiRequest(userMessage);
+
+            if (currentMode === 'chat') {
+                // 对话模式：显示 LLM 的响应
+                addMessage('bot', response.message);
+            } else if (currentMode === 'code') {
+                // 代码生成模式：生成文件
+                addFile(response.fileName, response.fileContent);
+            }
+        });
+
+        // 添加消息到界面
+        function addMessage(sender, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+            messageDiv.innerHTML = `
+                <div class="max-w-[80%] ${sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200'} 
+                     rounded-2xl px-4 py-2 break-words">
+                    ${content}
+                </div>
+            `;
+            messageArea.appendChild(messageDiv);
+            messageArea.scrollTop = messageArea.scrollHeight; // 滚动到底部
+        }
+
+        // 添加文件到下载区域
+        function addFile(fileName, fileContent) {
+            const fileDiv = document.createElement('div');
+            fileDiv.className = 'flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition';
+            fileDiv.innerHTML = `
+                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+                <span class="flex-1 font-medium">${fileName}</span>
+                <a 
+                    href="data:text/plain;charset=utf-8,${encodeURIComponent(fileContent)}" 
+                    download="${fileName}" 
+                    class="text-blue-500 hover:text-blue-700 font-medium"
+                >
+                    下载
+                </a>
+            `;
+            fileList.appendChild(fileDiv);
+        }
+
+        // 模拟 API 请求
+        async function mockApiRequest(userMessage) {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    if (currentMode === 'chat') {
+                        resolve({ message: `这是对 "${userMessage}" 的回复。` });
+                    } else if (currentMode === 'code') {
+                        resolve({ 
+                            fileName: `generated_code_${Date.now()}.v`, 
+                            fileContent: `module example;\n  // HDL 代码根据 "${userMessage}" 生成\nendmodule` 
+                        });
+                        resolve({ message: `已完成生成。` });
+                    }
+                }, 1000);
+            });
+        }
+    </script>
+</body>
+</html>
